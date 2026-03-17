@@ -1,5 +1,4 @@
-from sqlalchemy.orm import Session
-from typing import Annotated
+from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import Depends
 import logging
 
@@ -11,44 +10,49 @@ from ..schemas.product import ProductUpdate, ProductCreate
 
 logger = logging.getLogger(__name__)
 
-def list_all_products(db: Session):
-    return product_repository.get_all_products(db)
+
+async def list_all_products(db: AsyncSession):
+    return await product_repository.get_all_products(db)
 
 
 
-def get_product(db: Session, product_id: int):
-    return product_repository.get_product(db, product_id)
+async def get_product(db: AsyncSession, product_id: int):
+    product = await product_repository.get_product(db, product_id)
+    return product
 
 
 
-def create_product(db: Session, product_data:ProductCreate):
-    existing_product = product_repository.get_product(db, product_data.id)
+async def create_product(db: AsyncSession, product_data:ProductCreate):
+    existing_product = await product_repository.get_product(db, product_data.id)
     if existing_product:
         return None
     
     product = Product(**product_data.model_dump())
-    return product_repository.create_product(db, product)
+    return await product_repository.create_product(db, product)
 
 
 
-def update_product(db:Session, product_id: int, data: ProductUpdate):
-    db_product = product_repository.get_product(db, product_id)
+async def update_product(db: AsyncSession, product_id: int, data: ProductUpdate):
     
+    db_product = await product_repository.get_product(db, product_id)
     if not db_product:
         return None
-    
+    logger.info(f"got the product {db_product}")
+
     update_data = data.model_dump(exclude_unset=True)
-    return product_repository.update_product(db, db_product, update_data)
+    result = await product_repository.update_product(db, db_product, update_data)
+    logger.info(f"after update : {result}")
+    return result
 
 
 
-def delete_product(db:Session, product_id:int):
-    db_product = product_repository.get_product(db, product_id)
+async def delete_product(db: AsyncSession, product_id:int):
+    db_product = await product_repository.get_product(db, product_id)
     if not db_product:
         logger.info(f"product does not exist: {product_id}")
         return None
     
-    deleted_product_id = product_repository.delete_product(db, db_product)
+    deleted_product_id = await product_repository.delete_product(db, db_product)
     logger.info(f"deleted product id: {deleted_product_id}")
     return deleted_product_id
 

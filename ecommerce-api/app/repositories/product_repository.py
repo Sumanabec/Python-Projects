@@ -1,5 +1,7 @@
 from typing import Annotated
+from sqlalchemy import select
 from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
 from fastapi import Depends
 import logging
@@ -11,50 +13,63 @@ from ..models.product import Product
 logger = logging.getLogger(__name__)
 
 
-def get_all_products(db: Session):
-    return db.query(Product).all()
+async def get_all_products(db: AsyncSession):
+    try:
+        result = await db.execute(select(Product))
+        return result.scalars().all()
+    except SQLAlchemyError as err:
+        logger.error(err)
+        return None
+    
 
 
-def get_product(db:Session, product_id:int):
-    return db.query(Product).filter(Product.id == product_id).first()
+async def get_product(db:AsyncSession, product_id:int):
+    try:
+        result = await db.execute(select(Product).where(Product.id == product_id))
+        return result.scalar_one_or_none()
+    except SQLAlchemyError as err:
+        logger.error(err)
+        return None
 
 
 
-def create_product(db: Session, product: Product):
+async def create_product(db: AsyncSession, product: Product):
     try:
         db.add(product)
-        db.commit() 
-        db.refresh(product)
+        await db.commit() 
+        await db.refresh(product)
         logger.info(f"Created product: {product.id}")
-        return product.id
+        return product
     except SQLAlchemyError as e:
-        db.rollback()
+        await db.rollback()
         logger.error(f"Error creating product : {e}")
         return None
 
 
 
-def update_product(db: Session, db_product: Product, data: dict):
+async def update_product(db: AsyncSession, db_product: Product, data: dict):
     try:
         for field, value in data.items():
             setattr(db_product, field, value)
-        db.commit()
-        db.refresh(db_product)
+        await db.commit()
+        await db.refresh(db_product)
         return db_product
-    except SQLAlchemyError as e:
-        db.rollback()
-        logger.error(f"Error in updating product: {db_product.id}")
+    except SQLAlchemyError as sql_err:
+        await db.rollback()
+        logger.error(f"Error in updating product: {db_product.id}, {sql_err}")
         return None
+    except Exception as e:
+        logger.error(e)
 
 
 
-def delete_product(db: Session, db_product: Product):
+async def delete_product(db: AsyncSession, db_product: Product):
     product_id = db_product.id
     try:
         db.delete(db_product)
-        db.commit()
+        await db.commit()
         return product_id
     except SQLAlchemyError as e:
-        db.rollback()
+        await db.rollback()
         logger.error(f"Error in deleting the product")
         return None
