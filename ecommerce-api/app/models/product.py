@@ -6,7 +6,7 @@ from ..db.database import Base, engine
 class Product(Base):
     __tablename__ = "products"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True, unique=True)
     name = Column(String(100))
     description = Column(String(500))
     price = Column(Float, nullable=False)
@@ -14,4 +14,4 @@ class Product(Base):
     date_created = Column(DateTime, default=datetime.now())
     date_modified = Column(DateTime, default=datetime.now(), onupdate=datetime.now())
 
-Base.metadata.create_all(bind=engine)
+
